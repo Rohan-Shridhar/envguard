@@ -1,4 +1,4 @@
-import { guard } from "./guard.js";
+import { guard, coerce } from "./guard.js";
 import { inferEnv, inferType } from "./infer.js";
 
-export { guard, inferEnv, inferType };
+export { guard, coerce, inferEnv, inferType };

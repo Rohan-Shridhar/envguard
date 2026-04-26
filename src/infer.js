@@ -1,3 +1,5 @@
+import { coerce } from "./guard.js";
+
 /**
  * Infers the type of a string value.
  * @param {string} value 
@@ -16,14 +18,25 @@ export function inferType(value) {
 }
 
 /**
- * Infers types from process.env string values.
+ * Infers types from process.env string values, with optional overrides.
+ * @param {Object} [overrides={}] 
  * @returns {Object} An object with inferred values.
  */
-export function inferEnv() {
+export function inferEnv(overrides = {}) {
   const inferred = {};
 
   for (const [key, value] of Object.entries(process.env)) {
-    inferred[key] = inferType(value);
+    const override = overrides[key];
+
+    if (override) {
+      try {
+        inferred[key] = coerce(value, override.type);
+      } catch (e) {
+        throw new Error(`[envguard] Override failed for ${key}: ${e.message}, got "${value}"`);
+      }
+    } else {
+      inferred[key] = inferType(value);
+    }
   }
 
   return inferred;

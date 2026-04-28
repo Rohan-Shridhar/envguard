@@ -1,5 +1,7 @@
 # envguard
 
+[![npm downloads](https://img.shields.io/npm/dm/envguard)](https://www.npmjs.com/package/envguard)
+
 A zero-boilerplate environment variable validator for Node.js.
 
 Call it once at app startup — it checks all your env vars, coerces types, and throws a clear error if anything is missing or wrong. No more runtime crashes from undefined env vars.

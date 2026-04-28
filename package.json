@@ -5,7 +5,11 @@
   "description": "A zero-boilerplate env validator",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/guard.test.js"
+    "test": "node --test tests/guard.test.js",
+    "scan": "node bin/envguard.js"
+  },
+  "bin": {
+    "envguard": "bin/envguard.js"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnvGuard Dashboard</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --subtext: #94a3b8;
+            --primary: #38bdf8;
+            --red: #ef4444;
+            --yellow: #f59e0b;
+            --green: #10b981;
+            --orange: #f97316;
+            --purple: #a855f7;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { font-size: 1.875rem; font-weight: 700; color: var(--primary); }
+        .badge { background: #334155; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; color: var(--subtext); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-label { font-size: 0.875rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .stat-value { font-size: 2.25rem; font-weight: 700; margin-top: 0.5rem; }
+
+        .list-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .category {
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .category-header {
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-header h2 { font-size: 1rem; font-weight: 600; }
+        .category-header .count { 
+            font-size: 0.8125rem; 
+            background: rgba(0,0,0,0.2); 
+            padding: 0.125rem 0.5rem; 
+            border-radius: 4px;
+            color: var(--subtext);
+        }
+
+        .category-list { padding: 1rem 1.5rem; list-style: none; }
+        .category-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #334155;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9375rem;
+            color: var(--subtext);
+            display: flex;
+            align-items: center;
+        }
+        .category-list li:last-child { border-bottom: none; }
+        
+        .status-mark { margin-right: 0.75rem; font-weight: bold; }
+
+        .empty-msg { color: #475569; font-style: italic; font-size: 0.875rem; }
+
+        /* Status Colors */
+        .color-total { color: var(--primary); }
+        .color-unused { color: var(--red); }
+        .color-missing { color: var(--yellow); }
+        .color-used { color: var(--green); }
+        .color-invalid { color: var(--orange); }
+        .color-mismatch { color: var(--purple); }
+
+        .btn {
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EnvGuard Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn" onclick="updateDashboard()">Refresh Now</button>
+                <div class="badge" id="last-updated">Updating...</div>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total in .env</div>
+                <div class="stat-value color-total" id="stat-total">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unused</div>
+                <div class="stat-value color-unused" id="stat-unused">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Missing</div>
+                <div class="stat-value color-missing" id="stat-missing">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Invalid</div>
+                <div class="stat-value color-invalid" id="stat-invalid">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">System Active</div>
+                <div class="stat-value color-used" id="stat-used">-</div>
+            </div>
+        </div>
+
+        <div class="list-section">
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-mismatch">Type Mismatches (Schema Conflict)</h2>
+                    <span class="count" id="count-mismatch">0</span>
+                </div>
+                <ul class="category-list" id="list-mismatch"></ul>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-invalid">Invalid Values (Required Check)</h2>
+                    <span class="count" id="count-invalid">0</span>
+                </div>
+                <ul class="category-list" id="list-invalid"></ul>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-missing">Missing in .env (Used in Code)</h2>
+                    <span class="count" id="count-missing">0</span>
+                </div>
+                <ul class="category-list" id="list-missing"></ul>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-unused">Unused in Code (Defined in .env)</h2>
+                    <span class="count" id="count-unused">0</span>
+                </div>
+                <ul class="category-list" id="list-unused"></ul>
+            </div>
+
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-used">Properly Linked</h2>
+                    <span class="count" id="count-used">0</span>
+                </div>
+                <ul class="category-list" id="list-used"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function updateDashboard() {
+            try {
+                const res = await fetch('/api/env');
+                const data = await res.json();
+
+                // Update Stats
+                document.getElementById('stat-total').innerText = data.total;
+                document.getElementById('stat-unused').innerText = data.unused.length;
+                document.getElementById('stat-missing').innerText = data.missing.length;
+                document.getElementById('stat-invalid').innerText = data.invalid.length;
+                document.getElementById('stat-used').innerText = data.used.length;
+
+                // Update Header Counts
+                document.getElementById('count-mismatch').innerText = data.typeMismatches.length;
+                document.getElementById('count-invalid').innerText = data.invalid.length;
+                document.getElementById('count-missing').innerText = data.missing.length;
+                document.getElementById('count-unused').innerText = data.unused.length;
+                document.getElementById('count-used').innerText = data.used.length;
+
+                // Update Lists (Sorted Alphabetically)
+                renderList('list-mismatch', data.typeMismatches.map(m => 
+                    `${m.key} <small style="margin-left:auto">(Expected: ${m.expected}, Got: ${m.actual})</small>`
+                ), '✗');
+
+                renderList('list-invalid', data.invalid, '⚠');
+                renderList('list-missing', data.missing, '✗');
+                renderList('list-unused', data.unused, '⚠');
+                renderList('list-used', data.used, '✓');
+
+                document.getElementById('last-updated').innerText = 'Live: ' + new Date().toLocaleTimeString();
+            } catch (err) {
+                console.error('Failed to fetch env data', err);
+            }
+        }
+
+        function renderList(id, items, badge) {
+            const el = document.getElementById(id);
+            if (items.length === 0) {
+                el.innerHTML = '<li class="empty-msg">No variables found</li>';
+                return;
+            }
+            // Sort items alphabetically (case-insensitive)
+            const sorted = [...items].sort((a, b) => a.localeCompare(b));
+            
+            el.innerHTML = sorted.map(item => `
+                <li>
+                    <span class="status-mark">${badge}</span>
+                    <span>${item}</span>
+                </li>
+            `).join('');
+        }
+
+        // Initial update and poll
+        updateDashboard();
+        setInterval(updateDashboard, 2000);
+    </script>
+</body>
+</html>

@@ -35,13 +35,44 @@ export async function startDevServer(port = 3000) {
           return val === "" || val === "null" || val === "undefined";
         });
 
+        // 1. Try to load schema from env.schema.js
+        let schema = {};
+        try {
+          const schemaPath = path.join(rootDir, "env.schema.js");
+          const schemaModule = await import(`file://${schemaPath}`);
+          schema = schemaModule.default || schemaModule;
+        } catch (e) {
+          // No schema found or failed to load
+        }
+
+        // 2. Compute mismatches
+        const typeMismatches = [];
+        for (const key in schema) {
+          const rule = schema[key];
+          const rawValue = envVars[key];
+          
+          if (rawValue !== undefined && rule.type) {
+            const inferred = inferType(rawValue);
+            const actualType = typeof inferred;
+            
+            if (actualType !== rule.type) {
+              typeMismatches.push({
+                key,
+                expected: rule.type,
+                actual: actualType
+              });
+            }
+          }
+        }
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           total: defined.length,
           unused,
           missing,
           used,
-          invalid
+          invalid,
+          typeMismatches
         }));
       } catch (err) {
         res.writeHead(500);

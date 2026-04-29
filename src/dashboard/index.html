@@ -15,6 +15,7 @@
             --yellow: #f59e0b;
             --green: #10b981;
             --orange: #f97316;
+            --purple: #a855f7;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -103,6 +104,7 @@
         .color-missing { color: var(--yellow); }
         .color-used { color: var(--green); }
         .color-invalid { color: var(--orange); }
+        .color-mismatch { color: var(--purple); }
 
     </style>
 </head>
@@ -137,6 +139,13 @@
         </div>
 
         <div class="list-section">
+            <div class="category">
+                <div class="category-header">
+                    <h2 class="color-mismatch">Type Mismatches (Schema Conflict)</h2>
+                </div>
+                <ul class="category-list" id="list-mismatch"></ul>
+            </div>
+
             <div class="category">
                 <div class="category-header">
                     <h2 class="color-invalid">Invalid Values (Required Check)</h2>
@@ -181,6 +190,9 @@
                 document.getElementById('stat-used').innerText = data.used.length;
 
                 // Update Lists
+                renderList('list-mismatch', data.typeMismatches.map(m => 
+                    `${m.key} <small>(Expected: ${m.expected}, Got: ${m.actual})</small>`
+                ));
                 renderList('list-invalid', data.invalid);
                 renderList('list-missing', data.missing);
                 renderList('list-unused', data.unused);

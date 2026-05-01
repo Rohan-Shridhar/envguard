@@ -19,6 +19,29 @@ npm install @rohansm14/envguard
 
 ---
 
+## Preview
+
+### CLI Scan (`npx envguard`)
+```bash
+[envguard] Environment Variable Report:
+
+Unused variables (.env but not used):
+  - OLD_API_KEY
+  - LEGACY_DB
+
+Missing variables (used in code but not in .env):
+  - STRIPE_SECRET
+  - REDIS_URL
+```
+
+### Dev Dashboard (`npx envguard dev-ui`)
+Starts a local server at http://localhost:3000 showing:
+- Total, Unused, Missing, Invalid counts
+- Type mismatch conflicts from env.schema.js  
+- Color-coded variable lists (✓ linked, ⚠ unused, ✗ missing)
+
+---
+
 ## ⚡ Quick Start
 
 ### 1. Validate & Coerce

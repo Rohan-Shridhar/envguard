@@ -25,5 +25,8 @@
   "bugs": {
     "url": "https://github.com/Rohan-Shridhar/envguard/issues"
   },
-  "homepage": "https://github.com/Rohan-Shridhar/envguard#readme"
+  "homepage": "https://github.com/Rohan-Shridhar/envguard#readme",
+  "dependencies": {
+    "@rohansm14/envguard": "^1.2.3"
+  }
 }

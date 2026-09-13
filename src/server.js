@@ -2,26 +2,29 @@ import http from "http";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { parseEnv, scanUsedVars, compareEnvVars, inferType } from "./index.js";
+import { parseEnv } from "./utils.js";
+import { scanUsedVars, compareEnvVars } from "./scanner.js";
+import { inferType } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Starts a local HTTP server for the Dev UI.
- * @param {number} port - The port to listen on.
+ * Starts a local HTTP server for the Dev UI with real-time data polling
  */
 export async function startDevServer(port = 3000) {
   const server = http.createServer(async (req, res) => {
-    // 1. Route: Simple API endpoint for data
+    // API endpoint for environment variable data
     if (req.url === "/api/env") {
       try {
         const rootDir = process.cwd();
         const envPath = path.join(rootDir, ".env");
-        
+
         let envContent = "";
         try {
           envContent = await fs.readFile(envPath, "utf8");
-        } catch (e) {}
+        } catch (e) {
+          // .env file not found, treat as empty
+        }
 
         const envVars = parseEnv(envContent);
         const usedVarsArray = await scanUsedVars(rootDir);
@@ -35,7 +38,7 @@ export async function startDevServer(port = 3000) {
           return val === "" || val === "null" || val === "undefined";
         });
 
-        // 1. Try to load schema from env.schema.js
+        // Load schema if available
         let schema = {};
         try {
           const schemaPath = path.join(rootDir, "env.schema.js");
@@ -45,16 +48,16 @@ export async function startDevServer(port = 3000) {
           // No schema found or failed to load
         }
 
-        // 2. Compute mismatches
+        // Compute type mismatches against schema
         const typeMismatches = [];
         for (const key in schema) {
           const rule = schema[key];
           const rawValue = envVars[key];
-          
+
           if (rawValue !== undefined && rule.type) {
             const inferred = inferType(rawValue);
             const actualType = typeof inferred;
-            
+
             if (actualType !== rule.type) {
               typeMismatches.push({
                 key,
@@ -81,7 +84,7 @@ export async function startDevServer(port = 3000) {
       return;
     }
 
-    // 2. Route: Serve the dashboard UI
+    // Serve dashboard UI
     if (req.url === "/") {
       try {
         const html = await fs.readFile(path.join(__dirname, "dashboard/index.html"), "utf8");
@@ -94,7 +97,7 @@ export async function startDevServer(port = 3000) {
       return;
     }
 
-    // 404 for everything else
+    // 404
     res.writeHead(404);
     res.end();
   });

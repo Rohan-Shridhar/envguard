@@ -4,17 +4,18 @@ import { parseEnv } from "./utils.js";
 
 /**
  * Recursively scans a directory for files matching certain extensions.
- * @param {string} dir - The directory to scan.
- * @param {string[]} extensions - Array of file extensions to include.
- * @param {string[]} ignore - Array of directory names to ignore.
- * @returns {Promise<string[]>} List of absolute file paths.
+ * Skips node_modules, .git, dist, build, tests, and scanner.js
  */
-async function getFiles(dir, extensions = [".js", ".mjs", ".ts", ".jsx", ".tsx"], ignore = ["node_modules", ".git", "dist", "build", "tests", "scanner.js"]) {
+async function getFiles(
+  dir,
+  extensions = [".js", ".mjs", ".ts", ".jsx", ".tsx"],
+  ignore = ["node_modules", ".git", "dist", "build", "tests", "scanner.js"]
+) {
   const dirents = await fs.readdir(dir, { withFileTypes: true });
   const files = await Promise.all(
     dirents.map((dirent) => {
-      const res = path.resolve(dir, dirent.name);
       if (ignore.includes(dirent.name)) return [];
+      const res = path.resolve(dir, dirent.name);
       return dirent.isDirectory()
         ? getFiles(res, extensions, ignore)
         : extensions.includes(path.extname(res))
@@ -26,89 +27,82 @@ async function getFiles(dir, extensions = [".js", ".mjs", ".ts", ".jsx", ".tsx"]
 }
 
 /**
- * Scans codebase for process.env usage.
- * @param {string} rootDir - The root directory to scan.
- * @returns {Promise<Set<string>>} A set of found environment variable names.
+ * Extracts environment variable names from code using regex patterns
+ * Handles: process.env.VAR, process.env['VAR'], destructuring
  */
-export async function scanUsedVars(rootDir) {
-  const files = await getFiles(rootDir);
+function extractVarsFromContent(content) {
   const usedVars = new Set();
-  
-  // 1. Matches process.env.VAR or process.env?.VAR
+
+  // Strip comments to avoid false positives
+  const clean = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+
+  // Match: process.env.VAR or process.env?.VAR
   const dotRegex = /process\.env(?:\?\.|\.)([a-zA-Z_][a-zA-Z0-9_]*)/g;
+  let match;
+  while ((match = dotRegex.exec(clean)) !== null) {
+    if (match[1]) usedVars.add(match[1]);
+  }
 
-  // 2. Matches process.env['VAR'] or process.env?.['VAR'] or process.env?.['VAR']
+  // Match: process.env['VAR'] or process.env?.['VAR']
   const bracketRegex = /process\.env(?:\?\.)?\[['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]\]/g;
+  while ((match = bracketRegex.exec(clean)) !== null) {
+    if (match[1]) usedVars.add(match[1]);
+  }
 
-  // 3. Matches const { VAR1, VAR2: alias } = process.env
+  // Match: const { VAR1, VAR2: alias } = process.env
   const destructureRegex = /(?:const|let|var)\s+\{\s*([^}]+)\s*\}\s*=\s*process\.env/g;
-
-  for (const file of files) {
-    try {
-      const originalContent = await fs.readFile(file, "utf8");
-      
-      // Strip comments to avoid false positives (simple but effective for most cases)
-      const content = originalContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
-
-      let match;
-
-      // Scan Dot Notation
-      while ((match = dotRegex.exec(content)) !== null) {
-        if (match[1]) usedVars.add(match[1]);
+  while ((match = destructureRegex.exec(clean)) !== null) {
+    const properties = match[1].split(",");
+    for (let prop of properties) {
+      prop = prop.trim();
+      if (prop && !prop.startsWith("...")) {
+        const name = prop.split(":")[0].trim();
+        usedVars.add(name);
       }
-
-      // Scan Bracket Notation
-      while ((match = bracketRegex.exec(content)) !== null) {
-        if (match[1]) usedVars.add(match[1]);
-      }
-
-      // Scan Destructuring
-      while ((match = destructureRegex.exec(content)) !== null) {
-        const properties = match[1].split(",");
-        for (let prop of properties) {
-          prop = prop.trim();
-          if (!prop) continue;
-          
-          // Handle aliases: { VAR: alias }
-          const name = prop.split(":")[0].trim();
-          // Avoid matching rest elements: { ...others }
-          if (!name.startsWith("...")) {
-            usedVars.add(name);
-          }
-        }
-      }
-
-    } catch (err) {
-      continue;
     }
   }
-  
+
   return usedVars;
 }
 
 /**
- * Internal helper to compare defined and used variables.
- * @param {Object} envVars 
- * @param {Set<string>} usedVars 
- * @returns {Object}
+ * Scans codebase for process.env usage
+ * @returns {Promise<Set<string>>} Set of environment variable names found
+ */
+export async function scanUsedVars(rootDir) {
+  const files = await getFiles(rootDir);
+  const usedVars = new Set();
+
+  for (const file of files) {
+    try {
+      const content = await fs.readFile(file, "utf8");
+      const vars = extractVarsFromContent(content);
+      vars.forEach((v) => usedVars.add(v));
+    } catch (err) {
+      // Skip files that can't be read
+      continue;
+    }
+  }
+
+  return usedVars;
+}
+
+/**
+ * Compares defined vars (from .env) with used vars (from code scan)
  */
 export function compareEnvVars(envVars, usedVars) {
   const defined = Object.keys(envVars);
   const unused = defined.filter((v) => !usedVars.has(v));
   const missing = Array.from(usedVars).filter((v) => !defined.includes(v));
-  
   return { unused, missing };
 }
 
 /**
- * Orchestrates the full .env/codebase analysis and prints a report.
- * @param {Object} options
- * @param {string} [options.envPath=".env"] - Path to the .env file.
- * @param {string} [options.rootDir=process.cwd()] - Root directory of the codebase.
+ * Orchestrates the full .env/codebase analysis and prints a report
  */
 export async function analyzeEnv({ envPath = ".env", rootDir = process.cwd() } = {}) {
   try {
-    // 1. Parse .env
+    // Parse .env file
     const absEnvPath = path.resolve(process.cwd(), envPath);
     let envContent = "";
     try {
@@ -118,13 +112,13 @@ export async function analyzeEnv({ envPath = ".env", rootDir = process.cwd() } =
     }
     const envVars = parseEnv(envContent);
 
-    // 2. Scan codebase
+    // Scan codebase
     const usedVars = await scanUsedVars(path.resolve(process.cwd(), rootDir));
 
-    // 3. Compare
+    // Compare
     const { unused, missing } = compareEnvVars(envVars, usedVars);
 
-    // 4. Print report
+    // Print report
     console.log("\n[envguard] Environment Variable Report:");
 
     if (unused.length === 0 && missing.length === 0) {

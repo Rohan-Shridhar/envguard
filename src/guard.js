@@ -1,88 +1,56 @@
-import { coerce } from "./utils.js";
+import { validateSchema } from "./validation.js";
 
 /**
  * Validates and coerces environment variables based on the schema.
- * @param {Object} schema 
- * @returns {Object}
+ * Uses the unified validation pipeline for consistent handling.
+ * @param {Object} schema - Schema definition for environment variables
+ * @param {Object} options - Options (e.g., strict mode)
+ * @returns {Proxy} Validated environment variables with safe access
  */
 export function guard(schema, options = {}) {
- const errors = [];
- const result = {};
+  const { result, errors } = validateSchema(schema, process.env);
 
- for (const key in schema) {
- const rule = schema[key];
- const raw = process.env[key];
+  if (errors.length > 0) {
+    throw new Error(
+      `\n[envguard] Missing or invalid environment variables:\n${errors.join("\n")}\n\nFix these before starting the server.`
+    );
+  }
 
- // 1. check required
- if (rule.required && !raw) {
- errors.push(` ✗ ${key} → required but not set`);
- continue;
- }
+  return new Proxy(result, {
+    get(target, prop) {
+      if (typeof prop === "symbol") {
+        return target[prop];
+      }
 
- // 2. use default if not set
- if (!raw && rule.default !== undefined) {
- result[key] = rule.default;
- continue;
- }
+      if (prop === "toJSON" || prop === "then" || prop === "__esModule") {
+        return target[prop];
+      }
 
- // 3. coerce type
- if (raw) {
- try {
- result[key] = coerce(raw, rule.type);
- } catch (e) {
- errors.push(` ✗ ${key} → ${e.message}, got "${raw}"`);
- continue;
- }
+      if (prop in Object.prototype) {
+        return target[prop];
+      }
 
- // 4. minLength check (strings only)
- // Only apply minLength validation to string types to avoid silent failures
- if (rule.minLength && rule.type === 'string' && result[key].length < rule.minLength) {
- errors.push(
- ` ✗ ${key} → must be at least ${rule.minLength} characters (got ${result[key].length})`,
- );
- delete result[key];
- }
- }
- }
+      if (prop === "has" && !("has" in schema)) {
+        return (key) => target[key] !== undefined;
+      }
 
- // 5. throw all errors at once
- if (errors.length > 0) {
- throw new Error(
- `\n[envguard] Missing or invalid environment variables:\n${errors.join("\n")}\n\nFix these before starting the server.`,
- );
- }
+      const isUnvalidated = !(prop in schema);
 
- return new Proxy(result, {
- get(target, prop) {
- if (typeof prop === 'symbol') {
- return target[prop];
- }
- 
- if (prop === 'toJSON' || prop === 'then' || prop === '__esModule') {
- return target[prop];
- }
+      if (options.strict && isUnvalidated) {
+        throw new Error(
+          `[envguard] Attempted to access undefined environment variable: ${String(prop)}`
+        );
+      }
 
- if (prop in Object.prototype) {
- return target[prop];
- }
+      const isMissing = target[prop] === undefined;
 
- if (prop === 'has' && !('has' in schema)) {
- return (key) => target[key] !== undefined;
- }
+      if (isMissing && (!isUnvalidated || options.strict)) {
+        throw new Error(
+          `[envguard] Attempted to access undefined environment variable: ${String(prop)}`
+        );
+      }
 
- const isUnvalidated = !(prop in schema);
-
- if (options.strict && isUnvalidated) {
- throw new Error(`[envguard] Attempted to access undefined environment variable: ${String(prop)}`);
- }
-
- const isMissing = target[prop] === undefined;
-
- if (isMissing && (!isUnvalidated || options.strict)) {
- throw new Error(`[envguard] Attempted to access undefined environment variable: ${String(prop)}`);
- }
-
- return target[prop];
- }
- });
+      return target[prop];
+    }
+  });
 }

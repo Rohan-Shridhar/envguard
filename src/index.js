@@ -1,19 +1,8 @@
+// Public API exports only
 import { guard } from "./guard.js";
 import { inferEnv } from "./infer.js";
-import { coerce, inferType, isBoolean, isNumeric, parseEnv } from "./utils.js";
-import { scanUsedVars, compareEnvVars, analyzeEnv } from "./scanner.js";
 import { startDevServer } from "./server.js";
+import { analyzeEnv } from "./scanner.js";
 
-export { 
-  guard, 
-  inferEnv, 
-  coerce, 
-  inferType, 
-  isBoolean, 
-  isNumeric, 
-  parseEnv,
-  scanUsedVars,
-  compareEnvVars,
-  analyzeEnv,
-  startDevServer
-};
+export { guard, inferEnv, startDevServer, analyzeEnv };
+

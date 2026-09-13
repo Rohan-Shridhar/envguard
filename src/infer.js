@@ -1,52 +1,33 @@
-import { coerce, inferType, isBoolean, isNumeric } from "./utils.js";
+import { validateSchema, validateInferenceStrict } from "./validation.js";
 
 /**
  * Infers types from process.env string values, with optional overrides and strict mode.
- * @param {Object} [config={}] 
- * @param {Object} [env=process.env]
- * @returns {Object} An object with inferred values.
+ * Uses the unified validation pipeline.
+ * @param {Object} config - Config with optional overrides and strict flag
+ * @param {Object} env - Environment variables (defaults to process.env)
+ * @returns {Object} Inferred values with native types
  */
 export function inferEnv(config = {}, env = process.env) {
-  const { strict = false, ...overrides } = config;
-  const inferred = {};
-  const errors = [];
+  const { strict = false, ...schema } = config;
 
-  for (const [key, value] of Object.entries(env)) {
-    const override = overrides[key];
-
-    if (override) {
-      try {
-        inferred[key] = coerce(value, override.type);
-      } catch (e) {
-        errors.push(`  ✗ ${key} → override failed: ${e.message}, got "${value}"`);
-      }
-    } else {
-      if (strict) {
-        // Enforce safe inference
-        const lower = value.toLowerCase();
-        if (lower === "true" || lower === "false") {
-          if (!isBoolean(value)) {
-            errors.push(
-              `  ✗ ${key} → ambiguous boolean: expected exact "true" or "false", got "${value}"`,
-            );
-          }
-        } else if (!isNaN(parseFloat(value)) && !isNumeric(value)) {
-          errors.push(
-            `  ✗ ${key} → invalid numeric string: contains non-numeric characters, got "${value}"`,
-          );
-        }
-      }
-      inferred[key] = inferType(value);
+  // Validate inference with strict mode if enabled
+  if (strict) {
+    const errors = validateInferenceStrict(schema, env);
+    if (errors.length > 0) {
+      throw new Error(
+        `\n[envguard] Strict inference failed:\n${errors.join("\n")}\n\nReview your environment variables.`
+      );
     }
   }
 
+  // Use validation pipeline with inference mode
+  const { result, errors } = validateSchema(schema, env, { inferOnly: true });
+
   if (errors.length > 0) {
     throw new Error(
-      `\n[envguard] Strict inference failed:\n${errors.join(
-        "\n",
-      )}\n\nReview your environment variables.`,
+      `\n[envguard] Strict inference failed:\n${errors.join("\n")}\n\nReview your environment variables.`
     );
   }
 
-  return inferred;
+  return result;
 }

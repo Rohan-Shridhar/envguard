@@ -1,6 +1,6 @@
 {
   "name": "@rohansm14/envguard",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "type": "module",
   "description": "A zero-boilerplate env validator",
   "main": "index.js",

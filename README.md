@@ -1,7 +1,7 @@
 # envguard
 
 [![npm version](https://img.shields.io/npm/v/@rohansm14/envguard)](https://www.npmjs.com/package/@rohansm14/envguard)
-[![npm downloads](https://img.shields.io/npm/dm/@rohansm14/envguard)](https://www.npmjs.com/package/@rohansm14/envguard)
+<img src="https://img.shields.io/npm/d18m/@rohansm14/envguard" />
 
 A zero-boilerplate environment variable validator and analysis tool for Node.js.
 

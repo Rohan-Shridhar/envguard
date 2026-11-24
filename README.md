@@ -38,6 +38,24 @@ const env = guard({
 app.listen(env.PORT)
 ```
 
+### Strict Access and Presence Checks
+
+Pass a second options object to `guard()`. With `strict: true`, accessing a variable that is not declared in the schema throws an error. Use `env.has()` to check whether a schema variable has a value before reading it.
+
+```js
+const env = guard(
+  {
+    PORT: { type: 'number', default: 3000 },
+    FEATURE_FLAG: { type: 'string' }
+  },
+  { strict: true }
+)
+
+if (env.has('FEATURE_FLAG')) {
+  startFeature(env.FEATURE_FLAG)
+}
+```
+
 ### 2. Infer Types (Zero-schema)
 
 Don't want to maintain a schema? `inferEnv()` automatically detects types from environment variable values.

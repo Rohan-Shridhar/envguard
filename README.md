@@ -22,6 +22,7 @@ npm install @rohansm14/envguard
 ## ⚡ Quick Start
 
 ### 1. Validate & Coerce
+
 Call it at app startup to ensure your environment is safe.
 
 ```js
@@ -38,15 +39,84 @@ app.listen(env.PORT)
 ```
 
 ### 2. Infer Types (Zero-schema)
-Don't want to maintain a schema? `inferEnv()` automatically detects types.
+
+Don't want to maintain a schema? `inferEnv()` automatically detects types from environment variable values.
 
 ```js
 import { inferEnv } from '@rohansm14/envguard'
+
 const env = inferEnv()
 
-// "3000"  → 3000 (number)
-// "true"  → true (boolean)
+// "3000" → 3000 (number)
+// "true" → true (boolean)
 ```
+
+### 3. Strict Inference and Per-key Overrides
+
+You can pass a configuration object to `inferEnv()` to enable strict inference and define validation rules for individual environment variables.
+
+Set `strict: true` to reject ambiguous boolean values and malformed numeric strings for configured keys.
+
+```js
+import { inferEnv } from '@rohansm14/envguard'
+
+const env = inferEnv({
+  strict: true,
+  PORT: { required: true },
+  DEBUG: {},
+  API_KEY: { minLength: 6 }
+})
+```
+
+In this example:
+
+- `strict: true` enables strict inference checks.
+- `required: true` ensures that `PORT` is set.
+- `minLength: 6` requires `API_KEY` to contain at least six characters.
+- Values are automatically inferred as strings, numbers, or booleans.
+
+For example, strict inference rejects values such as `"TRUE"` when an exact lowercase boolean is expected, or `"12abc"` when a value looks numeric but contains invalid characters.
+
+### 4. Pass a Custom Environment Object
+
+By default, `inferEnv()` reads values from `process.env`. You can pass a custom environment object as the second argument.
+
+```js
+import { inferEnv } from '@rohansm14/envguard'
+
+const customEnv = {
+  PORT: '3000',
+  DEBUG: 'true',
+  API_KEY: 'abc123'
+}
+
+const env = inferEnv(
+  {
+    strict: true,
+    PORT: { required: true },
+    DEBUG: {},
+    API_KEY: { minLength: 6 }
+  },
+  customEnv
+)
+
+console.log(env)
+
+// {
+//   PORT: 3000,
+//   DEBUG: true,
+//   API_KEY: 'abc123'
+// }
+```
+
+**Function signature:**
+
+```js
+inferEnv(config = {}, env = process.env)
+```
+
+- `config`: Optional configuration object containing `strict` and per-key validation rules.
+- `env`: Optional environment object. Defaults to `process.env`.
 
 ---
 
@@ -79,12 +149,15 @@ Starts a server at `http://localhost:3000` with:
 - **Status Badges**: Clear `✓`, `⚠`, and `✗` indicators for every variable.
 
 ### ⚠️ Important: How to View the Dashboard
+
 The dashboard is a **web application** that requires the `envguard` local server to be running.
-*   **Do NOT open `index.html` directly** from your browser (using `File > Open` or double-clicking).
-*   If you open the file directly, it will show **empty stats** because it won't be able to connect to the backend scanner.
-*   **Always use the command:** `npx envguard dev-ui` and navigate to `http://localhost:3000`.
+
+- **Do NOT open `index.html` directly** from your browser.
+- If you open the file directly, it will show empty stats because it cannot connect to the backend scanner.
+- **Always use:** `npx envguard dev-ui` and navigate to `http://localhost:3000`.
 
 ### Requirements
+
 - **Project Root**: Run the command from your project's root directory.
 - **`.env` file**: Must have a `.env` file present for comparison.
 - **Code Usage**: Must have at least one `process.env.VAR` usage in your code for the scanner to detect.
@@ -102,12 +175,16 @@ The dashboard is a **web application** that requires the `envguard` local server
 
 ## Schema Options
 
+The following options are supported by `guard()` for validating environment variables.
+
 | Option | Type | Description |
 |---|---|---|
-| `type` | `'string'` `'number'` `'boolean'` | Expected type. Others are coerced. |
-| `required` | `boolean` | Throws if the var is not set. |
-| `default` | any | Fallback value if the var is not set. |
-| `minLength` | `number` | Minimum character length for strings. |
+| `type` | `'string'`, `'number'`, `'boolean'` | Expected type. Values are coerced to the specified type. |
+| `required` | `boolean` | Throws if the variable is not set. |
+| `default` | `any` | Fallback value if the variable is not set. |
+| `minLength` | `number` | Minimum character length for string values. |
+
+For `inferEnv()`, use `strict` as a configuration-level option and `required`, `default`, and `minLength` as per-key rules. Type inference is automatic.
 
 ---
 

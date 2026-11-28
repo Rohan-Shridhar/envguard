@@ -102,8 +102,17 @@ export async function startDevServer(port = 3000) {
     res.end();
   });
 
-  server.listen(port, () => {
-    console.log(`\n🚀 [envguard] Dev UI running at http://localhost:${port}`);
-    console.log("Press Ctrl+C to stop.\n");
+  await new Promise((resolve, reject) => {
+    const onError = (err) => reject(err);
+    server.once("error", onError);
+    server.listen(port, () => {
+      server.removeListener("error", onError);
+      const { port: boundPort } = server.address();
+      console.log(`\n🚀 [envguard] Dev UI running at http://localhost:${boundPort}`);
+      console.log("Press Ctrl+C to stop.\n");
+      resolve();
+    });
   });
+
+  return server;
 }
